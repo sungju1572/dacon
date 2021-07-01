@@ -37,7 +37,9 @@ train.isna().sum()
 
 train.describe()
 
-#상관관계
+#
+
+
 corr = train.corr()
 
 ##데이터 준비
