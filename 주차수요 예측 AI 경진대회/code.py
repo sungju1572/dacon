@@ -59,3 +59,4 @@ a = rental_d.corr()
 
 rental_d.info()
 rental_d[rental_d["임대료"=='-']]
+
