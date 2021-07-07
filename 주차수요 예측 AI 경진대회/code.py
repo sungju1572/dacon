@@ -3,8 +3,11 @@ import numpy as np
 from pandas import DataFrame
 from pandas import Series
 import matplotlib.pyplot as plt 
-
-
+import time
+import h2o
+from h2o.automl import H2OAutoML
+from h2o.estimators.gbm import H2OGradientBoostingEstimator
+from sklearn.model_selection import train_test_split
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
@@ -71,6 +74,11 @@ train['임대료']=train['임대료'].astype('float')
 test['임대료']=test['임대료'].astype('float')
 
 
+#신분 확인
+rank = pd.concat([train.신분.value_counts(), test.신분.value_counts()], axis=1)
+
+
+
 #결측치처리
 train = train.fillna(0)
 test.loc[(test.신분.isnull()) & (test.단지코드 == "C2411"), '신분'] = 'A'
@@ -83,9 +91,10 @@ age.columns
 
 age = age.drop(['10대미만(여자)', '10대미만(남자)', '10대(여자)', '10대(남자)'],axis=1)
 """
+
+
 ##데이터 축약
 #train
-
 group_train = train.groupby(train.단지코드).mean()
 
 
@@ -131,6 +140,24 @@ group_test_index = group_test.index
 """
 group_test = pd.merge(group_test, age, how = 'inner', on="지역")
 """
+
+##칼럼추가
+#1. 전용면적별 세대수 다 더해서 총임대가구수 컬럼 만들기
+sum_train = train.groupby(train.단지코드).sum()
+sum_test = test.groupby(test.단지코드).sum()
+
+
+group_train["총임대가구수"] = sum_train["전용면적별세대수"]
+group_test["총임대가구수"] = sum_test["전용면적별세대수"]
+
+#2. 단지내 주차면수 / 총세대수 해서 가구당 주차면수 컬럼 만들기
+group_train["가구당주차면수"] = group_train["단지내주차면수"] / group_train["총세대수"]
+group_test["가구당주차면수"] = group_test["단지내주차면수"] / group_test["총세대수"]
+
+
+#3. 총임대가구수 / 총 세대수 해서 임대비율 컬럼 만들기 
+group_train["임대비율"] = group_train["총임대가구수"] / group_train["총세대수"]
+group_test["임대비율"] = group_test["총임대가구수"] / group_test["총세대수"]
 
 ###범주형 더미변수화
 ##임대건물구분
@@ -246,6 +273,9 @@ xgb_model.fit(X_train, y_train)
 y_pred = xgb_model.predict(X_test)
 """
 
+##라벨컬럼 이름변경
+group_train = group_train.rename(columns={'등록차량수':'label'})
+group_train
 
 #명석 모델
 from sklearn import preprocessing
@@ -255,9 +285,9 @@ import datetime
 from sklearn.model_selection import GridSearchCV
 
 
-X_train = group_train.drop(["등록차량수"], axis = 1 )
-y_train = group_train["등록차량수"]
-X_test = group_test
+X_train = group_train.drop(["label"], axis = 1 ) #학습데이터
+y_train = group_train["label"] #정답라벨
+X_test = group_test #test데이터
 
 xgb1 = XGBRegressor()
 parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
@@ -300,6 +330,53 @@ for i in range(len(submission)):
            
 
 
-           
+#h2o 용으로 컬럼명이 한글이아닌 df 만들기
+
+
+group_train_2 = group_train
+
+
+names_str = []
+
+for i in range(51):
+    names_str.append("x"+str(i))    
+
+print(names_str, end= "")    
+
+names = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'label', 'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30', 'x31', 'x32', 'x33', 'x34', 'x35', 'x36', 'x37', 'x38', 'x39', 'x40', 'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50']
+
+group_train_2.iloc[:,9]
+
+group_train_2.columns = names
+
+group_train_2 = group_train_2.rename(columns={"x9":'label'})
+
+
+#h2o_automl
+h2o.init()
+h2o.no_progress()
+
+x = list(group_train_2.columns)  
+y = "label"         
+x.remove(y)
+
+#train / valid = 8:2
+f_train, f_valid = train_test_split(group_train_2, test_size=0.2,  shuffle=True)
+
+f_train.columns == f_valid.columns
+
+
+h2o_train = h2o.H2OFrame(f_train)
+h2o_valid = h2o.H2OFrame(f_valid)
+
+h2o_train[y] = h2o_train[y].asfactor()
+h2o_valid[y] = h2o_valid[y].asfactor()
+
+
+aml = H2OAutoML(max_models=10, max_runtime_secs=1000, seed=1)
+
+aml.train(x = x, y = y, training_frame=h2o_train, leaderboard_frame=h2o_valid)
+
+
 #csv로 저장
 submission.to_csv("submission5.csv", index=False)
