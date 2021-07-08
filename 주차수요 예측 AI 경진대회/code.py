@@ -8,6 +8,9 @@ import h2o
 from h2o.automl import H2OAutoML
 from h2o.estimators.gbm import H2OGradientBoostingEstimator
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+
+
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
@@ -92,11 +95,63 @@ age.columns
 age = age.drop(['10대미만(여자)', '10대미만(남자)', '10대(여자)', '10대(남자)'],axis=1)
 """
 
+#축약
+group_train = train.groupby(train.단지코드).mean()
+group_test = test.groupby(test.단지코드).mean()
+
+
+##칼럼추가
+#1. 전용면적별 세대수 다 더해서 총임대가구수 컬럼 만들기
+sum_train = train.groupby(train.단지코드).sum()
+sum_test = test.groupby(test.단지코드).sum()
+
+group_train["총임대가구수"] = sum_train["전용면적별세대수"]
+group_test["총임대가구수"] = sum_test["전용면적별세대수"]
+
+#2. 단지내 주차면수 / 총세대수 해서 가구당 주차면수 컬럼 만들기
+group_train["가구당주차면수"] = group_train["단지내주차면수"] / group_train["총세대수"]
+group_test["가구당주차면수"] = group_test["단지내주차면수"] / group_test["총세대수"]
+
+
+#3. 총임대가구수 / 총 세대수 해서 임대비율 컬럼 만들기 
+group_train["임대비율"] = group_train["총임대가구수"] / group_train["총세대수"]
+group_test["임대비율"] = group_test["총임대가구수"] / group_test["총세대수"]
+
+
+
+#min-max 스케일링
+group_train_col = group_train.columns
+group_test_col = group_test.columns
+
+group_train_idx = group_train.index
+group_test_idx = group_test.index
+
+
+group_train_label = group_train["등록차량수"]
+
+
+x = group_train.values #returns a numpy array
+min_max_scaler = MinMaxScaler()
+x_scaled = min_max_scaler.fit_transform(x)
+group_train = pd.DataFrame(x_scaled)
+
+group_train.columns = group_train_col
+group_train.index = group_train_idx
+group_train["등록차량수"] = group_train_label 
+
+x_t = group_test.values #returns a numpy array
+min_max_scaler = MinMaxScaler()
+x_scaled_t = min_max_scaler.fit_transform(x_t)
+group_test = pd.DataFrame(x_scaled_t)
+
+group_test.columns = group_test_col
+group_test.index = group_test_idx
+
+
+
 
 ##데이터 축약
 #train
-group_train = train.groupby(train.단지코드).mean()
-
 
 group_train["임대건물구분"] = ""
 group_train["지역"] = ""
@@ -119,7 +174,7 @@ group_train = pd.merge(group_train, age, how = 'inner', on="지역")
 """
 
 #test
-group_test = test.groupby(test.단지코드).mean()
+
 
 
 group_test["임대건물구분"] = ""
@@ -141,23 +196,6 @@ group_test_index = group_test.index
 group_test = pd.merge(group_test, age, how = 'inner', on="지역")
 """
 
-##칼럼추가
-#1. 전용면적별 세대수 다 더해서 총임대가구수 컬럼 만들기
-sum_train = train.groupby(train.단지코드).sum()
-sum_test = test.groupby(test.단지코드).sum()
-
-
-group_train["총임대가구수"] = sum_train["전용면적별세대수"]
-group_test["총임대가구수"] = sum_test["전용면적별세대수"]
-
-#2. 단지내 주차면수 / 총세대수 해서 가구당 주차면수 컬럼 만들기
-group_train["가구당주차면수"] = group_train["단지내주차면수"] / group_train["총세대수"]
-group_test["가구당주차면수"] = group_test["단지내주차면수"] / group_test["총세대수"]
-
-
-#3. 총임대가구수 / 총 세대수 해서 임대비율 컬럼 만들기 
-group_train["임대비율"] = group_train["총임대가구수"] / group_train["총세대수"]
-group_test["임대비율"] = group_test["총임대가구수"] / group_test["총세대수"]
 
 ###범주형 더미변수화
 ##임대건물구분
@@ -248,30 +286,6 @@ group_test = group_test.join(rank_group_test_dummy)
 group_test = group_test.drop(["신분"], axis=1)
 
 
-"""
-#모델 xgboost
-X_train = train.drop(["등록차량수"], axis = 1 )
-y_train = train["등록차량수"]
-X_test = test
-
-import xgboost as xgb
-
-xgb_model = xgb.XGBRegressor(booster='gbtree', 
-                             n_estimators=100, 
-                             learning_rate=0.08, 
-                             gamma=0, 
-                             subsample=0.75,
-                             colsample_bytree=0.8,
-                             colsample_bylevel=0.9,
-                             nthread=4,
-                             objective = "reg:linear",
-                             max_depth=7,
-                             random_state = 1572)
-
-xgb_model.fit(X_train, y_train)
-
-y_pred = xgb_model.predict(X_test)
-"""
 
 ##라벨컬럼 이름변경
 group_train = group_train.rename(columns={'등록차량수':'label'})
@@ -298,7 +312,8 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'silent': [1],
               'subsample': [0.7],
               'colsample_bytree': [0.7],
-              'n_estimators': [500]}
+              'n_estimators': [500],
+              "random_state" : [69]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -330,6 +345,9 @@ for i in range(len(submission)):
            
 
 
+
+#########h2o  사용하기
+
 #h2o 용으로 컬럼명이 한글이아닌 df 만들기
 
 
@@ -344,13 +362,14 @@ for i in range(51):
 print(names_str, end= "")    
 
 names = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'label', 'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30', 'x31', 'x32', 'x33', 'x34', 'x35', 'x36', 'x37', 'x38', 'x39', 'x40', 'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50']
+names_test = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30', 'x31', 'x32', 'x33', 'x34', 'x35', 'x36', 'x37', 'x38', 'x39', 'x40', 'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50']
 
-group_train_2.iloc[:,9]
 
 group_train_2.columns = names
 
-group_train_2 = group_train_2.rename(columns={"x9":'label'})
+group_test_2 = group_test
 
+group_test_2.columns = names_test
 
 #h2o_automl
 h2o.init()
@@ -360,23 +379,39 @@ x = list(group_train_2.columns)
 y = "label"         
 x.remove(y)
 
-#train / valid = 8:2
-f_train, f_valid = train_test_split(group_train_2, test_size=0.2,  shuffle=True)
-
-f_train.columns == f_valid.columns
 
 
-h2o_train = h2o.H2OFrame(f_train)
-h2o_valid = h2o.H2OFrame(f_valid)
+h2o_train = h2o.H2OFrame(group_train_2)
+h2o_test = h2o.H2OFrame(group_test_2)
 
 h2o_train[y] = h2o_train[y].asfactor()
-h2o_valid[y] = h2o_valid[y].asfactor()
 
 
-aml = H2OAutoML(max_models=10, max_runtime_secs=1000, seed=1)
 
-aml.train(x = x, y = y, training_frame=h2o_train, leaderboard_frame=h2o_valid)
+aml = H2OAutoML(max_models=20, seed=1)
+aml.train(x=x, y=y, training_frame=h2o_train)
+
+
+
+
+lb = aml.leaderboard
+
+
+lb.head(rows=lb.nrows)
+
+aml.leader.model_id
+
+
+#예측
+preds = aml.predict(h2o_test)
+
+preds = aml.leader.predict(h2o_test)
+
+auto_df = preds.as_data_frame()
+
+lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
+lb
 
 
 #csv로 저장
-submission.to_csv("submission5.csv", index=False)
+submission.to_csv("submission8.csv", index=False)
