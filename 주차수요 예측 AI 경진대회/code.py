@@ -120,6 +120,7 @@ group_test["임대비율"] = group_test["총임대가구수"] / group_test["총�
 
 
 #min-max 스케일링
+'''
 group_train_col = group_train.columns
 group_test_col = group_test.columns
 
@@ -146,7 +147,7 @@ group_test = pd.DataFrame(x_scaled_t)
 
 group_test.columns = group_test_col
 group_test.index = group_test_idx
-
+'''
 
 
 
@@ -287,6 +288,9 @@ group_test = group_test.drop(["신분"], axis=1)
 
 
 
+#오류 난 행삭제
+group_train = group_train.drop(index=['C1095', 'C2051', 'C1218', 'C1894', 'C2483', 'C1502', 'C1988'])
+
 ##라벨컬럼 이름변경
 group_train = group_train.rename(columns={'등록차량수':'label'})
 group_train
@@ -313,7 +317,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [69]}
+              "random_state" : [24]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -414,4 +418,4 @@ lb
 
 
 #csv로 저장
-submission.to_csv("submission8.csv", index=False)
+submission.to_csv("submission9.csv", index=False)
