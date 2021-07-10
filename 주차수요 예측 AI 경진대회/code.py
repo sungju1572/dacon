@@ -317,7 +317,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [24]}
+              "random_state" : [27]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -349,7 +349,7 @@ for i in range(len(submission)):
            
 
 
-
+"""
 #########h2o  사용하기
 
 #h2o 용으로 컬럼명이 한글이아닌 df 만들기
@@ -416,6 +416,6 @@ auto_df = preds.as_data_frame()
 lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
 lb
 
-
+"""
 #csv로 저장
 submission.to_csv("submission9.csv", index=False)
