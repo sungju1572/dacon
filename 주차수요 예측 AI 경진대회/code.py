@@ -81,12 +81,52 @@ test['임대료']=test['임대료'].astype('float')
 rank = pd.concat([train.신분.value_counts(), test.신분.value_counts()], axis=1)
 
 
-
 #결측치처리
 train = train.fillna(0)
 test.loc[(test.신분.isnull()) & (test.단지코드 == "C2411"), '신분'] = 'A'
 test.loc[(test.신분.isnull()) & (test.단지코드 == "C2253"), '신분'] = 'C'
 test["지하철"] = test["지하철"].fillna(0)
+test = test.fillna(0)
+
+test.isna().sum()
+
+#단지코드는 동일하지만 다른 유형인것들 나누기
+#train
+code_name_train = train["단지코드"].unique()
+for i in code_name_train:
+    a = []
+    b = train[train["단지코드"]==i]
+    b_index = b.index
+    b = b.reset_index(drop=True)
+    for j in range(len(b)):
+        a.append(b["신분"][j])
+    if len(set(a)) >= 2 :
+        for h in range(len(a)):
+            b["단지코드"][h] = b["단지코드"][h]+"_"+a[h]
+        train = pd.concat([train,b])
+        train = train.reset_index(drop=True)
+        train = train.drop(b_index)
+        train = train.reset_index(drop=True)
+            
+
+#test
+code_name_test = test["단지코드"].unique()
+for i in code_name_test:
+    a = []
+    b = test[test["단지코드"]==i]
+    b_index = b.index
+    b = b.reset_index(drop=True)
+    for j in range(len(b)):
+        a.append(b["신분"][j])
+    if len(set(a)) >= 2 :
+        for h in range(len(a)):
+            b["단지코드"][h] = b["단지코드"][h]+"_"+a[h]
+        test = pd.concat([test,b])
+        test = test.reset_index(drop=True)
+        test = test.drop(b_index)
+        test = test.reset_index(drop=True)
+                        
+    
 
 ####데이터 준비
 """
@@ -291,6 +331,7 @@ group_test = group_test.drop(["신분"], axis=1)
 #오류 난 행삭제
 group_train = group_train.drop(index=['C1095', 'C2051', 'C1218', 'C1894', 'C2483', 'C1502', 'C1988'])
 
+
 ##라벨컬럼 이름변경
 group_train = group_train.rename(columns={'등록차량수':'label'})
 group_train
@@ -317,7 +358,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [27]}
+              "random_state" : [30]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
