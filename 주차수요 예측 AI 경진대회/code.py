@@ -111,6 +111,7 @@ for i in code_name_train:
 
 #test
 code_name_test = test["단지코드"].unique()
+change_list = []
 for i in code_name_test:
     a = []
     b = test[test["단지코드"]==i]
@@ -121,13 +122,13 @@ for i in code_name_test:
     if len(set(a)) >= 2 :
         for h in range(len(a)):
             b["단지코드"][h] = b["단지코드"][h]+"_"+a[h]
+            change_list.append(i)
         test = pd.concat([test,b])
         test = test.reset_index(drop=True)
         test = test.drop(b_index)
         test = test.reset_index(drop=True)
                         
     
-
 ####데이터 준비
 """
 age.columns
@@ -358,7 +359,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [30]}
+              "random_state" : [25]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -382,11 +383,34 @@ pred = xgb_grid.predict(X_test)
 pred = pd.DataFrame(pred)
 pred["code"] = group_test_index
 
+change_list_set = set(change_list)
+
+#test 중 값이 나뉜것 평균값으로 합치기
+for j in change_list_set:
+    a = []
+    for i in range(len(pred)):
+        if pred["code"][i][0:5]== j:
+            a.append(pred[0][i])
+    if len(a)>=2:
+        mean_a = np.mean(a)
+        pred = pred.append({0 : mean_a, "code" : j}, ignore_index=True)
+        
+        
+ 
+#test중 값 나뉘어있던것 평균으로 합치기
+for i in pred["code"]:
+    if len(i)>5:
+        idx = pred[pred["code"]==i].index
+        pred = pred.drop(idx)
+        
+                
+pred = pred.reset_index(drop=True)
+
 
 for i in range(len(submission)):
    for j in range(len(pred)):
        if submission["code"][i] == pred["code"][j]:
-           submission["num"][i] = pred[0][j]
+              submission["num"][i] = pred[0][j]
            
 
 
@@ -460,3 +484,6 @@ lb
 """
 #csv로 저장
 submission.to_csv("submission9.csv", index=False)
+
+
+
