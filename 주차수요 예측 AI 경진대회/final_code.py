@@ -7,8 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1ZXxj4PX9qyJ_dK5wMUyeEYcz1KVAO9G-
 """
 
-
-
 import pandas as pd
 import glob
 import os
@@ -412,7 +410,7 @@ dtrain = lgb.Dataset(x_train,y_train)
 
 class cparams():
     def __init__(self): 
-        self.seed = 0
+        self.seed = 700
         self.num_iterations = 100 # Default = 100
         self.learning_rate = 0.1 # Default = 0.1
         self.num_leaves = 31 #Default = 31
@@ -445,7 +443,7 @@ class cparams():
         
         # cv's seed used to generate folds passed to numpy.random.seed
         bst = lgb.cv(param, dtrain,num_boost_round=num_round, stratified=False, 
-                     shuffle=True,early_stopping_rounds=100,verbose_eval=10,seed=0)
+                     shuffle=True,early_stopping_rounds=100,verbose_eval=10,seed=700)
         return bst
     
     def get_param(self):
@@ -474,13 +472,13 @@ params = {
     'metric': 'mae', 
     "verbosity": 1,
     "boosting_type": "gbdt",
-    'seed':0
+    'seed':700
 }
 
 eval_history = lgb.cv(
     params, dtrain, verbose_eval=20,
     stratified=False, num_boost_round=1000, early_stopping_rounds=100,
-    nfold=5,seed=0)
+    nfold=5,seed=700)
 
 print('Best score: ', eval_history['l1-mean'][-1])
 print('Number of estimators: ', len(eval_history['l1-mean']))
@@ -496,14 +494,14 @@ def opt_leaves(trial):
         'metric': 'mae', 
         "verbosity": 1,
         "boosting_type": "gbdt",
-        'seed':0,
+        'seed':700,
         'num_leaves':int(trial.suggest_loguniform("num_leaves", 3,32))
     }
     
     score = lgb.cv(
         params, dtrain, verbose_eval=0, 
         stratified=False, num_boost_round=current_model.num_iterations,
-        nfold=5,seed=0)
+        nfold=5,seed=700)
     return -score['l1-mean'][-1]
 
 study_leaves.optimize(opt_leaves, n_trials=50)
@@ -527,7 +525,7 @@ def opt_sample_weight(trial):
         'metric': 'mae', 
         "verbosity": 1,
         "boosting_type": "gbdt",
-        'seed':0,
+        'seed':700,
         'num_leaves':current_model.num_leaves,
         'min_data_in_leaf':int(trial.suggest_discrete_uniform('data_in_leaf',4,32,q=2)),
         'min_sum_hessian_in_leaf':trial.suggest_discrete_uniform('min_hessian',0.001,0.003,q=0.0005)
@@ -536,7 +534,7 @@ def opt_sample_weight(trial):
     score = lgb.cv(
         params, dtrain, verbose_eval=0, 
         stratified=False, num_boost_round=current_model.num_iterations,
-        nfold=5,seed=0)
+        nfold=5,seed=700)
     return -score['l1-mean'][-1]
 
 study_sample_weight.optimize(opt_sample_weight, n_trials=50)
@@ -561,7 +559,7 @@ def opt_bagging(trial):
         'metric': 'mae',  
         "verbosity": 1,
         "boosting_type": "gbdt",
-        'seed':0,
+        'seed':700,
         'num_leaves':current_model.num_leaves,
         'min_data_in_leaf':current_model.min_child_samples,
         'min_sum_hessian_in_leaf':current_model.min_child_weight,
@@ -573,7 +571,7 @@ def opt_bagging(trial):
     score = lgb.cv(
         params, dtrain, verbose_eval=0, 
         stratified=False, num_boost_round=current_model.num_iterations,
-        nfold=5,seed=0)
+        nfold=5,seed=700)
     return -score['l1-mean'][-1]
 
 study_bagging.optimize(opt_bagging, n_trials=50)
@@ -594,7 +592,7 @@ def opt_reg(trial):
         'metric': 'mae', 
         "verbosity": 1,
         "boosting_type": "gbdt",
-        'seed':0,
+        'seed':700,
         'num_leaves':current_model.num_leaves,
         'min_data_in_leaf':current_model.min_child_samples,
         'min_sum_hessian_in_leaf':current_model.min_child_weight,
@@ -608,7 +606,7 @@ def opt_reg(trial):
     score = lgb.cv(
         params, dtrain, verbose_eval=0, 
         stratified=False, num_boost_round=current_model.num_iterations,
-        nfold=5,seed=0)
+        nfold=5,seed=700)
     return -score['l1-mean'][-1]
 
 study_reg.optimize(opt_reg, n_trials=50)

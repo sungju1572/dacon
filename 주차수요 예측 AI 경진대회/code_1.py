@@ -442,7 +442,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [25]}
+              "random_state" : [106]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -505,6 +505,7 @@ pred["code"] = group_test_index
 
 change_list_set = set(change_list)
 
+
 #test 중 값이 나뉜것 평균값으로 합치기
 for j in change_list_set:
     a = []
@@ -515,7 +516,9 @@ for j in change_list_set:
         mean_a = np.mean(a)
         pred = pred.append({0 : mean_a, "code" : j}, ignore_index=True)
         
-        
+
+
+
  
 #test중 값 나뉘어있던것 평균으로 합치기
 for i in pred["code"]:
@@ -607,3 +610,4 @@ submission.to_csv("submission9.csv", index=False)
 
 
 
+cov = group_train.corr()

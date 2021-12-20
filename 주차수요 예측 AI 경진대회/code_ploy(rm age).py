@@ -19,12 +19,6 @@ age = pd.read_csv("age_gender_info.csv")
 
 
 
-##데이터확인
-
-train.info()
-
-
-
 #칼럼명 변셩
 train.columns = [
     '단지코드', '총세대수', '임대건물구분', '지역', '공급유형', '전용면적', '전용면적별세대수', '공가수', '신분',
@@ -337,6 +331,50 @@ group_train = group_train.drop(index=['C1095', 'C2051', 'C1218', 'C1894', 'C2483
 group_train = group_train.rename(columns={'등록차량수':'label'})
 group_train
 
+
+#폴리노미널
+
+group_train_col = group_train.columns
+group_test_col = group_test.columns
+
+group_train_idx = group_train.index
+group_test_idx = group_test.index
+
+"""
+group_train = group_train.drop(["지하철","임대비율"],axis=1)
+group_test = group_test.drop(["지하철","임대비율"],axis=1)
+"""
+group_label = group_train["label"]
+group_train = group_train.drop(["label"],axis=1)
+
+
+group_train_dummy = group_train.iloc[:,12:]
+group_test_dummy = group_test.iloc[:,12:]
+
+group_train = group_train.iloc[:,0:12]
+group_test = group_test.iloc[:,0:12]
+
+
+
+from sklearn.preprocessing import PolynomialFeatures
+poly_features = PolynomialFeatures(degree=2, include_bias=False)
+train_poly = poly_features.fit_transform(group_train)
+test_poly = poly_features.fit_transform(group_test)
+
+
+train_poly = pd.DataFrame(train_poly)
+test_poly = pd.DataFrame(test_poly)
+
+train_poly.index = group_train_idx 
+test_poly.index = group_test_idx 
+
+train_poly["label"] = group_label
+
+group_train = pd.concat([train_poly, group_train_dummy], axis = 1)
+group_test = pd.concat([test_poly, group_test_dummy], axis = 1)
+
+
+
 #명석 모델
 from sklearn import preprocessing
 import xgboost as xgb
@@ -349,6 +387,12 @@ X_train = group_train.drop(["label"], axis = 1 ) #학습데이터
 y_train = group_train["label"] #정답라벨
 X_test = group_test #test데이터
 
+
+"""
+y_train,fitted_lambda = boxcox(y_train,lmbda=None)
+"""
+
+
 xgb1 = XGBRegressor()
 parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'objective':['reg:linear'],
@@ -359,7 +403,7 @@ parameters = {'nthread':[4], #when use hyperthread, xgboost may become slower
               'subsample': [0.7],
               'colsample_bytree': [0.7],
               'n_estimators': [500],
-              "random_state" : [25]}
+              "random_state" : [106]}
 
 xgb_grid = GridSearchCV(xgb1,
                         parameters,
@@ -382,9 +426,17 @@ print(xgb_grid.best_params_)
 #prediction
 pred = xgb_grid.predict(X_test)
 
+"""
+pred = inv_boxcox(pred, fitted_lambda)
+"""
+"""
+#지수처리
+pred = 10**pred
+"""
 
 #병합
 pred = pd.DataFrame(pred)
+
 pred["code"] = group_test_index
 
 change_list_set = set(change_list)
@@ -488,6 +540,4 @@ lb
 """
 #csv로 저장
 submission.to_csv("submission9.csv", index=False)
-
-
 
