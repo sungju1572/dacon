@@ -105,12 +105,19 @@ fraud['V14'].describe()
 
 #boxplot 75%
 
+
+detect_fraud_2 = fraud['V2'].describe()[4]
+detect_fraud_3 = fraud['V3'].describe()[6]
 detect_fraud_4 = fraud['V4'].describe()[4]
+detect_fraud_7 = fraud['V7'].describe()[6]
+detect_fraud_9 = fraud['V9'].describe()[6]
 detect_fraud_10 = fraud['V10'].describe()[6]
 detect_fraud_11 = fraud['V11'].describe()[4]
 detect_fraud_12 = fraud['V12'].describe()[6]
 detect_fraud_14 = fraud['V14'].describe()[6]
+detect_fraud_16 = fraud['V16'].describe()[6]
 detect_fraud_17 = fraud['V17'].describe()[6]
+detect_fraud_18 = fraud['V18'].describe()[6]
 
 train_df['Class'] = None
 
@@ -123,22 +130,36 @@ len(count_list)
 
 for i in range(len(train_df)) :
     count = 0
+    if train_df['V2'][i] > detect_fraud_2:
+        count += 1
     if train_df['V4'][i] > detect_fraud_4:
         count += 1
-    if train_df['V10'][i] < detect_fraud_10:
-        count += 1
     if train_df['V11'][i] > detect_fraud_11:
+        count += 1
+    
+    if train_df['V3'][i] < detect_fraud_3:
+        count += 1
+    if train_df['V7'][i] < detect_fraud_7:
+        count += 1
+    if train_df['V9'][i] < detect_fraud_9:
+        count += 1    
+    if train_df['V10'][i] < detect_fraud_10:
         count += 1
     if train_df['V12'][i] < detect_fraud_12:
         count += 1
     if train_df['V14'][i] < detect_fraud_14:
         count += 1
+    if train_df['V16'][i] < detect_fraud_16:
+        count += 1    
     if train_df['V17'][i] < detect_fraud_17:
         count += 1
+    if train_df['V18'][i] < detect_fraud_18:
+        count += 1
+           
     if train_df['cosine'][i] > 0.7 :
         count +=1
         
-    if count > 3 :
+    if count > 6 :
         train_df["Class"][i] = 1
         count_list.append(train_df["ID"][i])
         
@@ -165,13 +186,13 @@ for i in range(len(train)) :
         print(i)
 
 
-train_df.to_csv('new_train_boxplot_75_4.csv',index=False)
+train_df.to_csv('new_train_boxplot_75_7.csv',index=False)
 
 
 
 
 import pandas as pd
-train = pd.read_csv('new_train_boxplot_75_4.csv')
+train = pd.read_csv('new_train_boxplot_75_7.csv')
 
 
 val = pd.read_csv('val.csv')
@@ -268,7 +289,7 @@ np.count_nonzero(test_pred)
 
 sample_sub['Class'] = test_pred
 
-sample_sub.to_csv('cosine06_no_oversampling.csv',index=False)
+sample_sub.to_csv('cosine07_no_oversampling_count7.csv',index=False)
 
 
 
